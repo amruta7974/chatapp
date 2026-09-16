@@ -1,6 +1,6 @@
 import React from "react";
 import { useForm } from "react-hook-form";
-import axios from "axios";
+import api from "../axios.js";
 import toast from "react-hot-toast";
 import { useAuth } from "../AuthProvider.jsx";
 import { Link } from "react-router-dom";
@@ -26,7 +26,7 @@ const Signup = () => {
         confirmPassword: data.confirmPassword,
       };
 
-      const response = await axios.post(
+      const response = await api.post(
         "/api/user/signup",
         userInfo,
         { withCredentials: true }

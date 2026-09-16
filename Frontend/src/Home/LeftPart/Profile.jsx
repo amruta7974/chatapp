@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import api from "../axios.js";
 import { useAuth } from "../../AuthProvider.jsx";
 
 const Profile = () => {
@@ -30,7 +30,7 @@ const Profile = () => {
       setLoading(true);
       setError("");
 
-      const res = await axios.put(
+      const res = await api.put(
         "/api/user/update-profile",
         {
           fullname: fullname.trim(),

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { AiOutlineLogout } from "react-icons/ai";
-import axios from "axios";
+import api from "../axios.js";
 import Cookies from "js-cookie";
 import toast from "react-hot-toast";
 
@@ -11,7 +11,7 @@ const Logout = () => {
     setLoading(true);
 
     try {
-      await axios.post("/api/user/logout");
+      await api.post("/api/user/logout");
 
       localStorage.removeItem("chatapp");
       Cookies.remove("jwt");

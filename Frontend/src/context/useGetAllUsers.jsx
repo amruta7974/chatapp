@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../axios.js";
 
 function useGetAllUsers() {
   const [allUsers, setAllUsers] = useState([]);
@@ -10,7 +10,7 @@ function useGetAllUsers() {
       setLoading(true);
 
       try {
-        const response = await axios.get("/api/user/allusers", {
+        const response = await api.get("/api/user/allusers", {
           withCredentials: true,
         });
 
