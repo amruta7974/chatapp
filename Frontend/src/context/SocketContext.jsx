@@ -35,7 +35,7 @@ export const SocketProvider = ({ children }) => {
       return;
     }
 
-    const newSocket = io(import.meta.env.VITE_BACKEND_URL, {
+    const newSocket = io(import.meta.env.VITE_API_URL, {
       query: {
         userId: String(authUser._id),
       },
