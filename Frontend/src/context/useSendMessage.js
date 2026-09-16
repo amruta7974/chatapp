@@ -1,16 +1,12 @@
 import { useState } from "react";
 import useConversation from "../zustand/useConversation.js";
-import axios from "axios";
+import api from "../axios.js";
 
 const useSendMessage = () => {
   const [loading, setLoading] = useState(false);
 
-  const {
-    setMessage,
-    selectedConversation,
-    replyMessage,
-    setReplyMessage,
-  } = useConversation();
+  const { setMessage, selectedConversation, replyMessage, setReplyMessage } =
+    useConversation();
 
   const sendMessages = async (message) => {
     if (!message.trim()) return;
@@ -18,15 +14,12 @@ const useSendMessage = () => {
     try {
       setLoading(true);
 
-      const res = await axios.post(
+      const res = await api.post(
         `/api/message/send/${selectedConversation._id}`,
         {
           message,
           replyTo: replyMessage?._id || null,
         },
-        {
-          withCredentials: true,
-        }
       );
 
       setMessage((prev) => [...prev, res.data.newMessage]);

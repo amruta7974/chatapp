@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import axios from "axios";
+import api from "../../axios.js";
 import { HiDotsVertical } from "react-icons/hi";
 import { IoArrowUndoOutline } from "react-icons/io5";
 import useConversation from "../../zustand/useConversation.js";
@@ -107,9 +107,7 @@ const Message = ({ message }) => {
     try {
       setDeleting(true);
 
-      await axios.delete(`/api/message/delete/${message._id}`, {
-        withCredentials: true,
-      });
+      await api.delete(`/api/message/delete/${message._id}`);
 
       setShowDeleteModal(false);
       setShowMenu(false);

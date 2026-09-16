@@ -35,7 +35,7 @@ export const SocketProvider = ({ children }) => {
       return;
     }
 
-    const newSocket = io("http://localhost:3001", {
+    const newSocket = io(import.meta.env.VITE_BACKEND_URL, {
       query: {
         userId: String(authUser._id),
       },

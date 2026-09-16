@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import useConversation from "../zustand/useConversation.js";
 import { useSocketContext } from "./SocketContext.jsx";
 import { useAuth } from "../AuthProvider.jsx";
-import axios from "axios";
-
+import api from "../axios.js";
 const useGetMessage = () => {
   const [loading, setLoading] = useState(false);
 
@@ -19,11 +18,8 @@ const useGetMessage = () => {
       setLoading(true);
 
       try {
-        const res = await axios.get(
+        const res = await api.get(
           `/api/message/get/${selectedConversation._id}`,
-          {
-            withCredentials: true,
-          },
         );
 
         const loadedMessages = res.data;

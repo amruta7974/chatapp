@@ -1,0 +1,382 @@
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+import tailwindcss from "@tailwindcss/vite";
+
+export default defineConfig({
+  plugins: [react(), tailwindcss()],
+  server: {
+    port: 5173,
+    proxy: {
+      "/api": {
+        target: "http://localhost:3001",
+        changeOrigin: true,
+      },
+    },
+  },
+});
+
+import React, { createContext, useContext, useState } from "react";
+
+export const AuthContext = createContext();
+
+export const AuthProvider = ({ children }) => {
+  const [authUser, setAuthUser] = useState(() => {
+    const storedUser = localStorage.getItem("chatapp");
+
+    if (storedUser) {
+      try {
+        return JSON.parse(storedUser);
+      } catch (err) {
+        console.error("Failed to parse user from localStorage:", err);
+        localStorage.removeItem("chatapp");
+      }
+    }
+
+    return null;
+  });
+
+  return (
+    <AuthContext.Provider value={{ authUser, setAuthUser }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+
+  return context;
+};
+
+import { createContext, useContext, useEffect, useState } from "react";
+import { useAuth } from "../AuthProvider.jsx";
+import io from "socket.io-client";
+
+const socketContext = createContext();
+
+export const useSocketContext = () => {
+  return useContext(socketContext);
+};
+
+export const SocketProvider = ({ children }) => {
+  const [socket, setSocket] = useState(null);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+
+  const { authUser } = useAuth();
+
+  useEffect(() => {
+    if (!authUser?._id) return;
+
+    if ("Notification" in window) {
+      if (Notification.permission === "default") {
+        Notification.requestPermission()
+          .then(() => {})
+          .catch((error) => {
+            console.error("Notification permission error:", error);
+          });
+      }
+    }
+  }, [authUser?._id]);
+
+  useEffect(() => {
+    if (!authUser?._id) {
+      setSocket(null);
+      setOnlineUsers([]);
+      return;
+    }
+
+    const newSocket = io("http://localhost:3001", {
+      query: {
+        userId: String(authUser._id),
+      },
+      withCredentials: true,
+    });
+
+    newSocket.on("connect", () => {
+      setSocket(newSocket);
+    });
+
+    newSocket.on("getOnlineUsers", (users) => {
+      setOnlineUsers(users.map((id) => String(id)));
+    });
+
+    newSocket.on("disconnect", () => {
+      setSocket(null);
+    });
+
+    return () => {
+      newSocket.off("connect");
+      newSocket.off("getOnlineUsers");
+      newSocket.off("disconnect");
+
+      newSocket.close();
+    };
+  }, [authUser?._id]);
+
+  return (
+    <socketContext.Provider value={{ socket, onlineUsers }}>
+      {children}
+    </socketContext.Provider>
+  );
+};
+
+import React, { useEffect, useState } from "react";
+import Cookies from "js-cookie";
+import axios from "axios";
+
+function useGetAllUsers() {
+  const [allUsers, setAllUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const getUsers = async () => {
+      setLoading(true);
+
+      try {
+        const token = Cookies.get("jwt");
+
+        const response = await axios.get("/api/user/allusers", {
+          credentials: "include",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        setAllUsers(response.data);
+      } catch (error) {
+        console.error("Error in useGetAllUsers:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getUsers();
+  }, []);
+
+  return [allUsers, loading, setAllUsers];
+}
+
+export default useGetAllUsers;
+
+import { useEffect, useState } from "react";
+import useConversation from "../zustand/useConversation.js";
+import { useSocketContext } from "./SocketContext.jsx";
+import { useAuth } from "../AuthProvider.jsx";
+import axios from "axios";
+
+const useGetMessage = () => {
+  const [loading, setLoading] = useState(false);
+
+  const { messages, setMessage, selectedConversation } = useConversation();
+
+  const { socket } = useSocketContext();
+  const { authUser } = useAuth();
+
+  useEffect(() => {
+    const getMessages = async () => {
+      if (!selectedConversation?._id) return;
+
+      setLoading(true);
+
+      try {
+        const res = await axios.get(
+          `/api/message/get/${selectedConversation._id}`,
+          {
+            withCredentials: true,
+          },
+        );
+
+        const loadedMessages = res.data;
+
+        let finalMessages = loadedMessages;
+
+        if (socket && authUser?._id) {
+          const receivedMessageIds = loadedMessages
+            .filter(
+              (msg) =>
+                String(msg.senderId) === String(selectedConversation._id) &&
+                String(msg.receiverId) === String(authUser._id) &&
+                msg.status !== "seen",
+            )
+            .map((msg) => msg._id);
+
+          if (receivedMessageIds.length > 0) {
+            socket.emit("messagesSeen", {
+              senderId: selectedConversation._id,
+            });
+
+            finalMessages = loadedMessages.map((msg) =>
+              receivedMessageIds.some((id) => String(id) === String(msg._id))
+                ? {
+                    ...msg,
+                    status: "seen",
+                  }
+                : msg,
+            );
+          }
+        }
+
+        setMessage(finalMessages);
+      } catch (error) {
+        console.error("Error getting messages:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getMessages();
+  }, [selectedConversation, socket, authUser?._id, setMessage]);
+
+  return {
+    loading,
+    messages,
+  };
+};
+
+export default useGetMessage;
+
+import { useState } from "react";
+import useConversation from "../zustand/useConversation.js";
+import axios from "axios";
+
+const useSendMessage = () => {
+  const [loading, setLoading] = useState(false);
+
+  const {
+    setMessage,
+    selectedConversation,
+    replyMessage,
+    setReplyMessage,
+  } = useConversation();
+
+  const sendMessages = async (message) => {
+    if (!message.trim()) return;
+
+    try {
+      setLoading(true);
+
+      const res = await axios.post(
+        `/api/message/send/${selectedConversation._id}`,
+        {
+          message,
+          replyTo: replyMessage?._id || null,
+        },
+        {
+          withCredentials: true,
+        }
+      );
+
+      setMessage((prev) => [...prev, res.data.newMessage]);
+
+      setReplyMessage(null);
+    } catch (error) {
+      console.error("Error in send messages", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return { loading, sendMessages };
+};
+
+export default useSendMessage;
+
+import { useEffect } from "react";
+import useConversation from "../zustand/useConversation";
+import { useSocketContext } from "./SocketContext";
+
+const useGetSocketMessage = () => {
+  const { socket } = useSocketContext();
+
+  const { selectedConversation, setMessage } = useConversation();
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewMessage = (newMessage) => {
+      socket.emit("messageDelivered", {
+        messageId: newMessage._id,
+        senderId: newMessage.senderId,
+      });
+
+      const chatOpen =
+        selectedConversation?._id &&
+        String(newMessage.senderId) === String(selectedConversation._id);
+
+      if (chatOpen) {
+        setMessage((prev) => {
+          const exists = prev.some(
+            (msg) => String(msg._id) === String(newMessage._id)
+          );
+
+          if (exists) return prev;
+
+          return [...prev, newMessage];
+        });
+
+        return;
+      }
+
+      if ("Notification" in window && Notification.permission === "granted") {
+        const notification = new Notification("New Message", {
+          body: newMessage.message,
+        });
+
+        notification.onclick = () => {
+          window.focus();
+          notification.close();
+        };
+      }
+    };
+
+    const handleMessageDelivered = ({ messageId }) => {
+      setMessage((prev) =>
+        prev.map((msg) =>
+          String(msg._id) === String(messageId)
+            ? {
+                ...msg,
+                status: "delivered",
+              }
+            : msg
+        )
+      );
+    };
+
+    const handleMessagesSeen = ({ messageIds }) => {
+      setMessage((prev) =>
+        prev.map((msg) =>
+          messageIds.some((id) => String(id) === String(msg._id))
+            ? {
+                ...msg,
+                status: "seen",
+              }
+            : msg
+        )
+      );
+    };
+
+    const handleMessageDeleted = ({ messageId }) => {
+      setMessage((prev) =>
+        prev.filter((msg) => String(msg._id) !== String(messageId))
+      );
+    };
+
+    socket.on("newMessage", handleNewMessage);
+    socket.on("messageDelivered", handleMessageDelivered);
+    socket.on("messagesSeen", handleMessagesSeen);
+    socket.on("messageDeleted", handleMessageDeleted);
+
+    return () => {
+      socket.off("newMessage", handleNewMessage);
+      socket.off("messageDelivered", handleMessageDelivered);
+      socket.off("messagesSeen", handleMessagesSeen);
+      socket.off("messageDeleted", handleMessageDeleted);
+    };
+  }, [socket, selectedConversation, setMessage]);
+};
+
+export default useGetSocketMessage;
