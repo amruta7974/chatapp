@@ -85,7 +85,7 @@ const Message = ({ message }) => {
       top = buttonRect.top - menuRect.height - gap;
     }
 
-    // Keep menu inside screen horizontally
+  
     let left;
 
     if (itsMe) {
@@ -94,7 +94,6 @@ const Message = ({ message }) => {
       left = buttonRect.left;
     }
 
-    // Prevent menu from going outside left/right
     left = Math.max(8, Math.min(left, window.innerWidth - menuRect.width - 8));
 
     setMenuPosition({

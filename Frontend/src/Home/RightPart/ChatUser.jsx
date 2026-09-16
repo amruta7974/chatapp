@@ -57,7 +57,6 @@ const ChatUser = () => {
         <IoArrowBack className="text-xl" />
       </button>
 
-      {/* Avatar */}
       <div className="avatar shrink-0">
         <div className="w-12 h-12 rounded-full ring-2 ring-white/70">
           <img
@@ -70,7 +69,6 @@ const ChatUser = () => {
         </div>
       </div>
 
-      {/* User info */}
       <div className="flex flex-col justify-center min-w-0">
         <h1 className="text-sm font-semibold text-white leading-tight truncate">
           {selectedConversation?.fullname || "Select a chat"}

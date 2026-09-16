@@ -37,18 +37,18 @@ const useGetMessage = () => {
             .map((msg) => msg._id);
 
           if (receivedMessageIds.length > 0) {
-            socket.emit("messagesSeen", {
-              senderId: selectedConversation._id,
-            });
-
             finalMessages = loadedMessages.map((msg) =>
-              receivedMessageIds.some((id) => String(id) === String(msg._id))
+              receivedMessageIds.includes(msg._id)
                 ? {
                     ...msg,
                     status: "seen",
                   }
                 : msg,
             );
+
+            socket.emit("messagesSeen", {
+              senderId: selectedConversation._id,
+            });
           }
         }
 

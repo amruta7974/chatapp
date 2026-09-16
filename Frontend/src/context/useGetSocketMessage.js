@@ -11,29 +11,42 @@ const useGetSocketMessage = () => {
     if (!socket) return;
 
     const handleNewMessage = (newMessage) => {
+      const chatOpen =
+        selectedConversation?._id &&
+        String(newMessage.senderId) === String(selectedConversation._id);
+
       socket.emit("messageDelivered", {
         messageId: newMessage._id,
         senderId: newMessage.senderId,
       });
 
-      const chatOpen =
-        selectedConversation?._id &&
-        String(newMessage.senderId) === String(selectedConversation._id);
-
       if (chatOpen) {
+    
         setMessage((prev) => {
           const exists = prev.some(
-            (msg) => String(msg._id) === String(newMessage._id)
+            (msg) => String(msg._id) === String(newMessage._id),
           );
 
           if (exists) return prev;
 
-          return [...prev, newMessage];
+          return [
+            ...prev,
+            {
+              ...newMessage,
+              status: "seen",
+            },
+          ];
+        });
+
+
+        socket.emit("messagesSeen", {
+          senderId: newMessage.senderId,
         });
 
         return;
       }
 
+     
       if ("Notification" in window && Notification.permission === "granted") {
         const notification = new Notification("New Message", {
           body: newMessage.message,
@@ -54,8 +67,8 @@ const useGetSocketMessage = () => {
                 ...msg,
                 status: "delivered",
               }
-            : msg
-        )
+            : msg,
+        ),
       );
     };
 
@@ -67,14 +80,14 @@ const useGetSocketMessage = () => {
                 ...msg,
                 status: "seen",
               }
-            : msg
-        )
+            : msg,
+        ),
       );
     };
 
     const handleMessageDeleted = ({ messageId }) => {
       setMessage((prev) =>
-        prev.filter((msg) => String(msg._id) !== String(messageId))
+        prev.filter((msg) => String(msg._id) !== String(messageId)),
       );
     };
 
