@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { AiOutlineLogout } from "react-icons/ai";
-import api from "../axios.js";
+import api from "../../axios.js";
 import Cookies from "js-cookie";
 import toast from "react-hot-toast";
 

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import api from "../axios.js";
+import api from "../../axios.js";
 import { useAuth } from "../../AuthProvider.jsx";
 
 const Profile = () => {
